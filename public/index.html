@@ -59,6 +59,13 @@
   </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen flex flex-col">
+  <div id="name-modal" class="fixed inset-0 z-50 bg-gray-900 bg-opacity-95 flex items-center justify-center">
+    <div class="bg-gray-800 p-8 rounded-lg shadow-lg text-center w-full max-w-md">
+      <h2 class="text-xl font-bold mb-4 text-white">Enter Your Name</h2>
+      <input id="username-input" type="text" maxlength="20" placeholder="Your name" class="w-full px-4 py-2 rounded bg-gray-700 text-white focus:outline-none mb-4" />
+      <button id="join-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded">Join Meeting</button>
+    </div>
+  </div>
   <!-- Toast notification -->
   <div id="toast" class="toast"></div>
 
@@ -140,10 +147,6 @@
     const socket = io();
     const roomId = location.pathname.split("/")[1] || "default";
     let username = '';
-    while (!username || username.length > 20) {
-      username = prompt("Enter your name (max 20 chars):", "") || "";
-      username = username.trim();
-    }
     const peers = {}; // peerId => {pc, stream, videoEl, username}
     let localStream = null, screenStream = null;
     let micEnabled = true, camEnabled = true;
@@ -387,7 +390,19 @@
       // Join room
       socket.emit('join', {room: roomId, username});
     }
-    main();
+
+    document.getElementById('join-btn').onclick = () => {
+      const input = document.getElementById('username-input');
+      const name = input.value.trim();
+      if (name && name.length <= 20) {
+        username = name;
+        document.getElementById('name-modal').style.display = 'none';
+        main(); // call main only after username is confirmed
+      } else {
+        input.classList.add('ring', 'ring-red-500');
+        setTimeout(() => input.classList.remove('ring', 'ring-red-500'), 1500);
+      }
+    };
   </script>
 </body>
 </html>
