@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ultimate Video Meeting</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom scrollbar for chat */
+    .chat-scrollbar::-webkit-scrollbar { width: 8px; background: #23272a; }
+    .chat-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+    .toast {
+      position: fixed;
+      z-index: 50;
+      left: 50%;
+      top: 2rem;
+      transform: translateX(-50%);
+      background: rgba(31,41,55,0.95);
+      color: #fff;
+      padding: 0.75rem 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 24px 0 rgba(0,0,0,0.15);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      font-size: 1.125rem;
+    }
+    .toast.show { opacity: 1; pointer-events: auto; }
+    .video-label {
+      position: absolute;
+      bottom: 0.25rem;
+      left: 0.5rem;
+      background: rgba(31,41,55,0.8);
+      color: #fff;
+      padding: 0.125rem 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.95rem;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .video-tile {
+      position: relative;
+      background: #23272a;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      box-shadow: 0 4px 16px 0 rgba(0,0,0,0.15);
+      min-width: 220px;
+      min-height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .video-tile video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #1f2937;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col">
+  <!-- Toast notification -->
+  <div id="toast" class="toast"></div>
+
+  <div class="flex flex-1 overflow-hidden">
+    <!-- Main area: video grid and controls -->
+    <div class="flex flex-col flex-1">
+      <header class="flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-gray-950/80">
+        <div class="flex items-center gap-3">
+          <span class="font-black text-2xl tracking-tight text-blue-400">Ultimate Video Meeting</span>
+        </div>
+        <button id="layout-toggle" class="bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7" rx="2" class="text-blue-400" fill="currentColor"/>
+            <rect x="14" y="3" width="7" height="7" rx="2" class="text-blue-400" fill="currentColor"/>
+            <rect x="14" y="14" width="7" height="7" rx="2" class="text-blue-400" fill="currentColor"/>
+            <rect x="3" y="14" width="7" height="7" rx="2" class="text-blue-400" fill="currentColor"/>
+          </svg>
+          Toggle Layout
+        </button>
+      </header>
+      <main class="flex-1 flex flex-col">
+        <!-- Participant grid -->
+        <div id="video-grid" class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 transition-all"></div>
+        <!-- Control bar -->
+        <div class="w-full px-6 py-4 flex items-center justify-center gap-6 bg-gray-950/80 border-t border-gray-800">
+          <button id="toggle-mic" class="bg-blue-600 hover:bg-blue-500 rounded-full w-12 h-12 flex items-center justify-center focus:outline-none" title="Toggle Mic">
+            <svg id="mic-icon" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M12 19v2m0 0h6m-6 0H6m6-2a7 7 0 0 1-7-7V9m14 0v3a7 7 0 0 1-7 7" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" class="text-white"/>
+            </svg>
+          </button>
+          <button id="toggle-camera" class="bg-blue-600 hover:bg-blue-500 rounded-full w-12 h-12 flex items-center justify-center focus:outline-none" title="Toggle Camera">
+            <svg id="camera-icon" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="3" y="7" width="13" height="10" rx="2" fill="currentColor" class="text-white"/>
+              <path d="M16 7l5-3v16l-5-3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button id="screen-share" class="bg-blue-600 hover:bg-blue-500 rounded-full w-12 h-12 flex items-center justify-center focus:outline-none" title="Share Screen">
+            <svg id="screen-icon" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="2" y="7" width="20" height="12" rx="2" fill="currentColor" class="text-white"/>
+              <path d="M8 21h8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button id="chat-toggle" class="bg-blue-600 hover:bg-blue-500 rounded-full w-12 h-12 flex items-center justify-center focus:outline-none" title="Chat">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button id="leave-btn" class="bg-red-600 hover:bg-red-500 rounded-full w-12 h-12 flex items-center justify-center focus:outline-none" title="Leave">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M17 16l4-4m0 0l-4-4m4 4H7" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="3" y="5" width="4" height="14" rx="2" fill="currentColor" class="text-white"/>
+            </svg>
+          </button>
+        </div>
+      </main>
+    </div>
+    <!-- Chat sidebar -->
+    <aside id="chat-panel" class="w-80 max-w-full bg-gray-950 border-l border-gray-800 flex flex-col transition-transform duration-200 translate-x-full md:translate-x-0 md:static fixed right-0 top-0 h-full z-30" style="display:none;">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+        <span class="font-semibold text-lg">Chat</span>
+        <button id="close-chat" class="text-gray-400 hover:text-white rounded p-1 focus:outline-none">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div id="chat-messages" class="flex-1 overflow-y-auto chat-scrollbar p-4 space-y-2"></div>
+      <form id="chat-form" class="flex gap-2 p-4 border-t border-gray-800">
+        <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 bg-gray-800 rounded px-3 py-2 focus:outline-none text-white" autocomplete="off" />
+        <button type="submit" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-white">Send</button>
+      </form>
+    </aside>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // --- Config & State ---
+    const socket = io();
+    const roomId = location.pathname.split("/")[1] || "default";
+    let username = '';
+    while (!username || username.length > 20) {
+      username = prompt("Enter your name (max 20 chars):", "") || "";
+      username = username.trim();
+    }
+    const peers = {}; // peerId => {pc, stream, videoEl, username}
+    let localStream = null, screenStream = null;
+    let micEnabled = true, camEnabled = true;
+    let layoutGrid = true;
+    let myPeerId = null;
+
+    // --- UI Elements ---
+    const videoGrid = document.getElementById('video-grid');
+    const toast = document.getElementById('toast');
+    const chatPanel = document.getElementById('chat-panel');
+    const chatToggle = document.getElementById('chat-toggle');
+    const closeChat = document.getElementById('close-chat');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const layoutToggle = document.getElementById('layout-toggle');
+    const leaveBtn = document.getElementById('leave-btn');
+    const micBtn = document.getElementById('toggle-mic');
+    const cameraBtn = document.getElementById('toggle-camera');
+    const micIcon = document.getElementById('mic-icon');
+    const cameraIcon = document.getElementById('camera-icon');
+    const screenBtn = document.getElementById('screen-share');
+    const screenIcon = document.getElementById('screen-icon');
+
+    // --- Helper Functions ---
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+    function addMessage({user, text, self}) {
+      const div = document.createElement('div');
+      div.className = 'flex flex-col ' + (self ? 'items-end' : 'items-start');
+      div.innerHTML = `<span class="text-xs text-gray-400">${user}</span>
+        <span class="rounded px-3 py-1 mt-0.5 ${self ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-100'} max-w-xs break-words">${text}</span>`;
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    function createVideoTile(peerId, stream, label, isSelf) {
+      let tile = document.createElement('div');
+      tile.className = 'video-tile';
+      tile.id = 'tile-' + peerId;
+      let video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = isSelf;
+      video.srcObject = stream;
+      video.setAttribute('data-peer', peerId);
+      tile.appendChild(video);
+      let nameLabel = document.createElement('div');
+      nameLabel.className = 'video-label';
+      nameLabel.textContent = label + (isSelf ? ' (You)' : '');
+      tile.appendChild(nameLabel);
+      return {tile, video};
+    }
+    function updateGridLayout() {
+      if (layoutGrid) {
+        videoGrid.className = "flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 transition-all";
+      } else {
+        videoGrid.className = "flex-1 flex flex-col items-center gap-6 p-6 transition-all";
+      }
+    }
+    function removePeer(peerId) {
+      if (peers[peerId]) {
+        if (peers[peerId].videoEl && peers[peerId].videoEl.parentElement) {
+          peers[peerId].videoEl.parentElement.remove();
+        }
+        if (peers[peerId].pc) peers[peerId].pc.close();
+        delete peers[peerId];
+      }
+    }
+    function updateMicCamIcons() {
+      micBtn.classList.toggle('bg-blue-600', micEnabled);
+      micBtn.classList.toggle('bg-gray-700', !micEnabled);
+      micIcon.innerHTML = micEnabled
+        ? '<path d="M12 19v2m0 0h6m-6 0H6m6-2a7 7 0 0 1-7-7V9m14 0v3a7 7 0 0 1-7 7" stroke-linecap="round" stroke-linejoin="round"/><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" class="text-white"/>'
+        : '<path d="M19 19L5 5"/><path d="M9 9v3a3 3 0 0 0 6 0V9m2 0v3a5 5 0 0 1-10 0V9m10 0a7 7 0 0 1-7 7H6m12 0h-1" stroke-linecap="round" stroke-linejoin="round"/>';
+      cameraBtn.classList.toggle('bg-blue-600', camEnabled);
+      cameraBtn.classList.toggle('bg-gray-700', !camEnabled);
+      cameraIcon.innerHTML = camEnabled
+        ? '<rect x="3" y="7" width="13" height="10" rx="2" fill="currentColor" class="text-white"/><path d="M16 7l5-3v16l-5-3" stroke-linecap="round" stroke-linejoin="round"/>'
+        : '<rect x="3" y="7" width="13" height="10" rx="2" fill="currentColor" class="text-gray-400"/><path d="M16 7l5-3v16l-5-3" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+
+    // --- Socket.IO and Signaling ---
+    socket.on('connect', () => {
+      myPeerId = socket.id;
+      socket.emit('join', {room: roomId, username});
+    });
+    socket.on('joined', ({users}) => {
+      showToast('You joined the room');
+      // Connect to existing users
+      users.forEach(u => {
+        if (u.id !== myPeerId) {
+          createPeerConnection(u.id, u.username, true);
+        }
+      });
+    });
+    socket.on('user-joined', ({id, username: uname}) => {
+      showToast(`${uname} joined`);
+      createPeerConnection(id, uname, false);
+    });
+    socket.on('user-left', ({id, username: uname}) => {
+      showToast(`${uname} left`);
+      removePeer(id);
+    });
+    socket.on('signal', async ({from, data}) => {
+      if (!peers[from]) return;
+      const pc = peers[from].pc;
+      if (data.sdp) {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        if (data.sdp.type === 'offer') {
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socket.emit('signal', {to: from, data: {sdp: pc.localDescription}});
+        }
+      } else if (data.candidate) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e){}
+      }
+    });
+
+    // --- WebRTC Peer Connection ---
+    async function createPeerConnection(peerId, uname, isInitiator) {
+      if (peers[peerId]) return;
+      const pc = new RTCPeerConnection({iceServers: [{urls: "stun:stun.l.google.com:19302"}]});
+      // Add local tracks
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      // Video/stream handling
+      let remoteStream = new MediaStream();
+      const {tile, video} = createVideoTile(peerId, remoteStream, uname, false);
+      videoGrid.appendChild(tile);
+      peers[peerId] = {pc, stream: remoteStream, videoEl: video, username: uname};
+      pc.ontrack = (e) => {
+        e.streams[0].getTracks().forEach(track => {
+          if (!remoteStream.getTracks().some(t => t.id === track.id)) {
+            remoteStream.addTrack(track);
+          }
+        });
+        video.srcObject = remoteStream;
+      };
+      pc.onicecandidate = (e) => {
+        if (e.candidate) socket.emit('signal', {to: peerId, data: {candidate: e.candidate}});
+      };
+      // Negotiate
+      if (isInitiator) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('signal', {to: peerId, data: {sdp: pc.localDescription}});
+      }
+    }
+
+    // --- Media and Controls ---
+    async function initMedia() {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+        updateMicCamIcons();
+      } catch (e) {
+        alert('Could not access camera/mic: ' + e.message);
+        throw e;
+      }
+    }
+    micBtn.onclick = () => {
+      micEnabled = !micEnabled;
+      localStream.getAudioTracks().forEach(track => track.enabled = micEnabled);
+      updateMicCamIcons();
+    };
+    cameraBtn.onclick = () => {
+      camEnabled = !camEnabled;
+      localStream.getVideoTracks().forEach(track => track.enabled = camEnabled);
+      updateMicCamIcons();
+    };
+    screenBtn.onclick = async () => {
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({video: true});
+        const screenTrack = screenStream.getVideoTracks()[0];
+        // Replace outgoing video track for all peers
+        Object.values(peers).forEach(p => {
+          if (p.pc) {
+            const sender = p.pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) sender.replaceTrack(screenTrack);
+          }
+        });
+        // Replace local video display
+        if (peers[myPeerId]) {
+          peers[myPeerId].videoEl.srcObject = screenStream;
+        }
+        screenTrack.onended = () => {
+          // Restore cam
+          Object.values(peers).forEach(p => {
+            if (p.pc) {
+              const sender = p.pc.getSenders().find(s => s.track && s.track.kind === 'video');
+              if (sender) sender.replaceTrack(localStream.getVideoTracks()[0]);
+            }
+          });
+          if (peers[myPeerId]) peers[myPeerId].videoEl.srcObject = localStream;
+        };
+      } catch (e) {
+        showToast("Screen share failed");
+      }
+    };
+    leaveBtn.onclick = () => {
+      socket.disconnect();
+      Object.keys(peers).forEach(removePeer);
+      showToast("You left the room");
+      setTimeout(() => location.href = "/", 1000);
+    };
+    layoutToggle.onclick = () => {
+      layoutGrid = !layoutGrid;
+      updateGridLayout();
+    };
+
+    // --- Chat ---
+    chatToggle.onclick = () => {
+      chatPanel.style.display = 'flex';
+    };
+    closeChat.onclick = () => {
+      chatPanel.style.display = 'none';
+    };
+    chatForm.onsubmit = (e) => {
+      e.preventDefault();
+      const msg = chatInput.value.trim();
+      if (msg) {
+        socket.emit('chat', {user: username, text: msg});
+        addMessage({user: 'You', text: msg, self: true});
+        chatInput.value = '';
+      }
+    };
+    socket.on('chat', ({user, text}) => {
+      if (user !== username) addMessage({user, text, self: false});
+    });
+
+    // --- Initial Setup ---
+    async function main() {
+      await initMedia();
+      // Immediately render local video tile after media is ready
+      myPeerId = socket.id;
+      const {tile, video} = createVideoTile(myPeerId, localStream, username, true);
+      videoGrid.appendChild(tile);
+      peers[myPeerId] = {pc: null, stream: localStream, videoEl: video, username};
+      updateGridLayout();
+      // Join room
+      socket.emit('join', {room: roomId, username});
+    }
+    main();
+  </script>
+</body>
+</html>
