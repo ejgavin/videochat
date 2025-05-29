@@ -144,7 +144,9 @@
   <script src="/W/videochat/socket.io/socket.io.js"></script>
   <script>
     // --- Config & State ---
-    const socket = io();
+    const socket = io({
+      path: "/W/videochat/socket.io"
+    });
     const roomId = location.pathname.split("/")[1] || "default";
     let username = '';
     const peers = {}; // peerId => {pc, stream, videoEl, username}
