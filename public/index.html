@@ -254,8 +254,12 @@
       removePeer(id);
     });
     socket.on('signal', async ({from, data}) => {
-      if (!peers[from]) return;
+      // Create peer connection if it doesn't exist yet
+      if (!peers[from]) {
+        createPeerConnection(from, 'Unknown', false);
+      }
       const pc = peers[from].pc;
+
       if (data.sdp) {
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
         if (data.sdp.type === 'offer') {
@@ -264,7 +268,11 @@
           socket.emit('signal', {to: from, data: {sdp: pc.localDescription}});
         }
       } else if (data.candidate) {
-        try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e){}
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } catch (e) {
+          console.error("Failed to add ICE candidate", e);
+        }
       }
     });
 
