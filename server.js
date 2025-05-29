@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/W/videochat', express.static(path.join(__dirname, 'public')));
 
 const users = {};
 
@@ -48,8 +48,12 @@ io.on('connection', (socket) => {
 
 
 // Fallback routing for SPA
-app.get('*', (req, res) => {
+app.get('/W/videochat/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/', (req, res) => {
+  res.redirect('/W/videochat');
 });
 
 const PORT = process.env.PORT || 3000;

@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Ultimate Video Meeting</title>
+  <base href="/W/videochat/">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     /* Custom scrollbar for chat */
@@ -132,7 +133,7 @@
     </aside>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="/W/videochat/socket.io/socket.io.js"></script>
   <script>
     // --- Config & State ---
     const socket = io();
@@ -346,7 +347,7 @@
       socket.disconnect();
       Object.keys(peers).forEach(removePeer);
       showToast("You left the room");
-      setTimeout(() => location.href = "/", 1000);
+      setTimeout(() => location.href = "/W/videochat", 1000);
     };
     layoutToggle.onclick = () => {
       layoutGrid = !layoutGrid;
