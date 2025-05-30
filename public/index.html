@@ -4,6 +4,7 @@
   <title>Ultimate Video Meeting</title>
   <base href="/W/videochat/">
   <link rel="icon" href="/W/videochat/favicon.png" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline'; connect-src 'self' wss://videochat-986l.onrender.com">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     /* Custom scrollbar for chat */
@@ -145,7 +146,9 @@
   <script>
     // --- Config & State ---
     const socket = io({
-      path: "/W/videochat/socket.io"
+      path: "/W/videochat/socket.io",
+      secure: true,
+      transports: ["websocket"]
     });
     const roomId = location.pathname.split("/")[1] || "default";
     let username = '';
