@@ -253,6 +253,13 @@
     socket.on('user-joined', ({id, username: uname}) => {
       showToast(`${uname} joined`);
       createPeerConnection(id, uname, false);
+      setTimeout(() => {
+        const peer = peers[id];
+        if (peer && peer.stream.getTracks().length === 0) {
+          removePeer(id);
+          showToast(`${uname} did not share media and was removed`);
+        }
+      }, 10000); // 10 seconds grace period
     });
     socket.on('user-left', ({id, username: uname}) => {
       showToast(`${uname} left`);
@@ -289,9 +296,9 @@
       localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
       // Video/stream handling
       let remoteStream = new MediaStream();
-      const {tile, video} = createVideoTile(peerId, remoteStream, uname, false);
+      const {tile, video} = createVideoTile(myPeerId, localStream, username, true);
       videoGrid.appendChild(tile);
-      peers[peerId] = {pc, stream: remoteStream, videoEl: video, username: uname};
+      peers[myPeerId] = {pc: null, stream: localStream, videoEl: video, username};
       pc.ontrack = (e) => {
         e.streams[0].getTracks().forEach(track => {
           if (!remoteStream.getTracks().some(t => t.id === track.id)) {
@@ -299,6 +306,9 @@
           }
         });
         video.srcObject = remoteStream;
+        if (!document.getElementById('tile-' + peerId)) {
+          videoGrid.appendChild(tile);
+        }
       };
       pc.onicecandidate = (e) => {
         if (e.candidate) socket.emit('signal', {to: peerId, data: {candidate: e.candidate}});
@@ -403,9 +413,9 @@
       await initMedia();
       // Immediately render local video tile after media is ready
       myPeerId = socket.id;
-      const {tile, video} = createVideoTile(myPeerId, localStream, username, true);
-      videoGrid.appendChild(tile);
-      peers[myPeerId] = {pc: null, stream: localStream, videoEl: video, username};
+      const {tile, video} = createVideoTile(peerId, remoteStream, uname, false);
+      peers[peerId] = {pc, stream: remoteStream, videoEl: video, username: uname};
+      // Only show tile after receiving media
       updateGridLayout();
       // Join room
       socket.emit('join', {room: roomId, username});
