@@ -7,6 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'nonce-secure123' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline'; connect-src 'self' wss://videochat-986l.onrender.com">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* (Removed custom chat scrollbar) */
     .toast {
       position: fixed;
       z-index: 50;
@@ -142,6 +143,7 @@
     // --- UI Elements ---
     const videoGrid = document.getElementById('video-grid');
     const toast = document.getElementById('toast');
+    // (Chat-related variables removed)
     const layoutToggle = document.getElementById('layout-toggle');
     const leaveBtn = document.getElementById('leave-btn');
     const micBtn = document.getElementById('toggle-mic');
@@ -211,6 +213,7 @@
       socket.emit('join', {room: roomId, username});
     });
     socket.on('joined', ({users}) => {
+      showToast('You joined the room');
       // Connect to existing users
       users.forEach(u => {
         if (u.id !== myPeerId) {
@@ -264,6 +267,7 @@
       // Video/stream handling
       let remoteStream = new MediaStream();
       const {tile, video} = createVideoTile(peerId, remoteStream, uname, false);
+      // videoGrid.appendChild(tile); // <-- removed, now conditionally added below
       peers[peerId] = {pc, stream: remoteStream, videoEl: video, username: uname};
       pc.ontrack = (e) => {
         e.streams[0].getTracks().forEach(track => {
@@ -355,6 +359,7 @@
       updateGridLayout();
     };
 
+    // (Chat section removed)
 
     // --- Initial Setup ---
     async function main() {
