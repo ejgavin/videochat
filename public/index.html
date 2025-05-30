@@ -7,9 +7,6 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'nonce-secure123' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline'; connect-src 'self' wss://videochat-986l.onrender.com">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Custom scrollbar for chat */
-    .chat-scrollbar::-webkit-scrollbar { width: 8px; background: #23272a; }
-    .chat-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
     .toast {
       position: fixed;
       z-index: 50;
@@ -124,22 +121,6 @@
         </div>
       </main>
     </div>
-    <!-- Chat sidebar -->
-    <aside id="chat-panel" class="w-80 max-w-full bg-gray-950 border-l border-gray-800 flex flex-col transition-transform duration-200 translate-x-full md:translate-x-0 md:static fixed right-0 top-0 h-full z-30" style="display:none;">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-        <span class="font-semibold text-lg">Chat</span>
-        <button id="close-chat" class="text-gray-400 hover:text-white rounded p-1 focus:outline-none">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
-      <div id="chat-messages" class="flex-1 overflow-y-auto chat-scrollbar p-4 space-y-2"></div>
-      <form id="chat-form" class="flex gap-2 p-4 border-t border-gray-800">
-        <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 bg-gray-800 rounded px-3 py-2 focus:outline-none text-white" autocomplete="off" />
-        <button type="submit" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-white">Send</button>
-      </form>
-    </aside>
   </div>
 
   <script src="/W/videochat/socket.io/socket.io.js"></script>
@@ -161,12 +142,6 @@
     // --- UI Elements ---
     const videoGrid = document.getElementById('video-grid');
     const toast = document.getElementById('toast');
-    const chatPanel = document.getElementById('chat-panel');
-    const chatToggle = document.getElementById('chat-toggle');
-    const closeChat = document.getElementById('close-chat');
-    const chatMessages = document.getElementById('chat-messages');
-    const chatForm = document.getElementById('chat-form');
-    const chatInput = document.getElementById('chat-input');
     const layoutToggle = document.getElementById('layout-toggle');
     const leaveBtn = document.getElementById('leave-btn');
     const micBtn = document.getElementById('toggle-mic');
@@ -181,14 +156,6 @@
       toast.textContent = msg;
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 2000);
-    }
-    function addMessage({user, text, self}) {
-      const div = document.createElement('div');
-      div.className = 'flex flex-col ' + (self ? 'items-end' : 'items-start');
-      div.innerHTML = `<span class="text-xs text-gray-400">${user}</span>
-        <span class="rounded px-3 py-1 mt-0.5 ${self ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-100'} max-w-xs break-words">${text}</span>`;
-      chatMessages.appendChild(div);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     function createVideoTile(peerId, stream, label, isSelf) {
       let tile = document.createElement('div');
@@ -208,11 +175,13 @@
       return {tile, video};
     }
     function updateGridLayout() {
-      if (layoutGrid) {
-        videoGrid.className = "flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 transition-all";
-      } else {
-        videoGrid.className = "flex-1 flex flex-col items-center gap-6 p-6 transition-all";
-      }
+      const count = Object.keys(peers).length;
+      let cols = 1;
+      if (count > 1) cols = 2;
+      if (count > 4) cols = 3;
+      if (count > 6) cols = 4;
+      if (count > 9) cols = 5;
+      videoGrid.className = `flex-1 grid grid-cols-${cols} gap-6 p-6 transition-all`;
     }
     function removePeer(peerId) {
       if (peers[peerId]) {
@@ -242,7 +211,6 @@
       socket.emit('join', {room: roomId, username});
     });
     socket.on('joined', ({users}) => {
-      showToast('You joined the room');
       // Connect to existing users
       users.forEach(u => {
         if (u.id !== myPeerId) {
@@ -253,6 +221,12 @@
     socket.on('user-joined', ({id, username: uname}) => {
       showToast(`${uname} joined`);
       createPeerConnection(id, uname, false);
+      setTimeout(() => {
+        const peer = peers[id];
+        if (peer && peer.stream.getTracks().length === 0) {
+          removePeer(id);
+        }
+      }, 10000);
     });
     socket.on('user-left', ({id, username: uname}) => {
       showToast(`${uname} left`);
@@ -290,7 +264,6 @@
       // Video/stream handling
       let remoteStream = new MediaStream();
       const {tile, video} = createVideoTile(peerId, remoteStream, uname, false);
-      videoGrid.appendChild(tile);
       peers[peerId] = {pc, stream: remoteStream, videoEl: video, username: uname};
       pc.ontrack = (e) => {
         e.streams[0].getTracks().forEach(track => {
@@ -299,6 +272,10 @@
           }
         });
         video.srcObject = remoteStream;
+        if (!document.getElementById('tile-' + peerId)) {
+          videoGrid.appendChild(tile);
+          updateGridLayout();
+        }
       };
       pc.onicecandidate = (e) => {
         if (e.candidate) socket.emit('signal', {to: peerId, data: {candidate: e.candidate}});
@@ -378,25 +355,6 @@
       updateGridLayout();
     };
 
-    // --- Chat ---
-    chatToggle.onclick = () => {
-      chatPanel.style.display = 'flex';
-    };
-    closeChat.onclick = () => {
-      chatPanel.style.display = 'none';
-    };
-    chatForm.onsubmit = (e) => {
-      e.preventDefault();
-      const msg = chatInput.value.trim();
-      if (msg) {
-        socket.emit('chat', {user: username, text: msg});
-        addMessage({user: 'You', text: msg, self: true});
-        chatInput.value = '';
-      }
-    };
-    socket.on('chat', ({user, text}) => {
-      if (user !== username) addMessage({user, text, self: false});
-    });
 
     // --- Initial Setup ---
     async function main() {
